@@ -23,7 +23,7 @@ const connection = mysql.createConnection({
 
 connection.connect(err => {
     if (err) throw err;
-    console.log("Welcome to the Employee Management System!");
+    console.log("\n Welcome to the Employee Management System! \n");
     promptUser();
 });
 
