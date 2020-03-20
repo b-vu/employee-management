@@ -133,6 +133,9 @@ const view = (choice) => {
 }
 
 const addEmployee = async () => {
+    const managers = [];
+    const managersObj = {};
+
     const input = await inquirer.prompt([
         {
             type: "input",
@@ -152,49 +155,46 @@ const addEmployee = async () => {
         }
     ])
 
+    connection.query("SELECT id, first_name, last_name FROM employee", (err, res) => {
+        if (err) throw err;
 
-    if(input.title === titles[2] || input.title === titles[4] || input.title === titles[6] || input.title === titles[7]){
-        const managers = [];
-        const managersObj = {};
-        const query = "SELECT id, first_name, last_name FROM employee WHERE role_id = 1 OR role_id = 2 OR role_id = 4 OR role_id = 6 ORDER BY first_name";
+        for (const employee of res) {
+            const name = employee.first_name + " " + employee.last_name;
+            managers.push(name);
+            managersObj[name] = employee.id;
+        }
 
-        connection.query(query, (err, res) => {
-            if(err) throw err;
-            for(const manager of res){
-                const name = manager.first_name + " " + manager.last_name;
-                managers.push(name)
-                managersObj[name] = manager.id;
+        managers.push("No manager");
+
+        inquirer.prompt(
+            {
+                type: "list",
+                message: "Who is their manager?",
+                name: "manager",
+                choices: managers
             }
-
-            inquirer.prompt(
-                {
-                    type: "list",
-                    message: "Who is their manager?",
-                    name: "manager",
-                    choices: managers
-                }
-            ).then(res =>{
+        ).then(res => {
+            if (res.manager !== "No manager") {
                 const employee = new Employee(input.first_name, input.last_name, titles.indexOf(input.title) + 1, managersObj[res.manager.toString()]);
-                connection.query("INSERT INTO employee SET ?", employee, (err, res) => {
-                    if(err) throw err;
+                connection.query("INSERT INTO employee SET ?", employee, (err, result) => {
+                    if (err) throw err;
+
+                    console.log(result.affectedRows + " employee added!\n");
+                    promptUser();
+                })
+            }
+            else {
+                const manager = new Manager(input.first_name, input.last_name, titles.indexOf(input.title) + 1);
+
+                connection.query("INSERT INTO employee SET ?", manager, (err, res) => {
+                    if (err) throw err;
 
                     console.log(res.affectedRows + " employee added!\n");
                     promptUser();
                 })
-            })
+            }
         })
-    }
-
-    else{
-        const manager = new Manager(input.first_name, input.last_name, titles.indexOf(input.title) + 1);
-
-        connection.query("INSERT INTO employee SET ?", manager, (err, res) => {
-            if(err) throw err;
-
-            console.log(res.affectedRows + " employee added!\n");
-            promptUser();
-        })
-    }
+    })
 }
 
 const addRole = async () => {
@@ -427,8 +427,10 @@ const removeRole = async () => {
     connection.query(query, {title: input.remove}, (err, res) => {
         if(err) throw err;
 
-        console.log("Successfully removed role.");
-        connection.query(`ALTER TABLE department AUTO_INCREMENT = ${departments.length}`)
+        console.log(`Successfully removed ${input.remove}.`);
+
+        connection.query(`ALTER TABLE role AUTO_INCREMENT = ${titles.length}`);
+
         promptUser();
     })
 }
@@ -448,9 +450,10 @@ const removeDepartment = async () => {
     connection.query(query, {name: input.remove}, (err, res) => {
         if(err) throw err;
 
-        console.log("Successfully removed department.");
+        console.log(`Successfully removed ${input.remove}.`);
 
-        connection.query(`ALTER TABLE department AUTO_INCREMENT = ${departments.length}`)
+        connection.query(`ALTER TABLE department AUTO_INCREMENT = ${departments.length}`);
+
         promptUser();
     })
 }
